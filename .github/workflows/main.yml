@@ -3,14 +3,13 @@ name: Build FightcadeFBNeo
 on:
   push:
     branches:
-      - main  # change to your branch name
+      - master  # or your default branch
   pull_request:
     branches:
-      - main
+      - master
 
 jobs:
   build:
-    name: Build FBNeo on Windows
     runs-on: windows-latest
 
     steps:
@@ -19,61 +18,57 @@ jobs:
 
     - name: Install Chocolatey
       run: |
-        Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 
     - name: Install Visual Studio 2019 Build Tools
       run: choco install -y visualstudio2019buildtools --includeRecommended --passive
-      # You can specify a specific version if needed
 
-    - name: Install Perl (ActivePerl)
+    - name: Install ActivePerl
       run: choco install -y activestate-perl
 
     - name: Install NASM
       run: choco install -y nasm
 
-    - name: Download DirectX SDK (June 2010)
+    - name: Download and install DirectX SDK (June 2010)
       run: |
-        # Download the SDK installer
         Invoke-WebRequest -Uri 'https://download.microsoft.com/download/1/1/0/11072F7C-4CF0-4D66-8E8B-5069D3E2E615/dxsdk_redist.exe' -OutFile 'dxsdk.exe'
-        # Run the installer silently
         Start-Process -FilePath '.\dxsdk.exe' -Args '/silent' -Wait
-        # Note: The installer may error out at the end, which can be ignored
+        # The installer may error out at the end, ignore errors
 
-    - name: Prepare environment
+    - name: Add NASM to PATH
       shell: pwsh
       run: |
-        # Add NASM to PATH if needed
-        # For example, if NASM is installed in the default choco location
-        $nasmPath = "${Env:ChocolateyInstall}\lib\nasm\tools"
-        $Env:Path += ";$nasmPath"
-        Write-Host "Updated PATH: $Env:Path"
+        $nasmDir = "$Env:ChocolateyInstall\lib\nasm\tools"
+        $Env:Path += ";$nasmDir"
+        Write-Host "PATH updated for NASM."
 
-    - name: Setup environment variables
+    - name: Set environment variables for Perl
+      shell: pwsh
       run: |
-        # Set environment variables as needed, e.g., PERL, NASM
-        # For example, PERL is added by default with choco
-        # If needed, set additional env vars here
+        $perlPath = "$Env:ChocolateyInstall\bin"
+        $Env:Path += ";$perlPath"
+        Write-Host "PERL and NASM should now be in PATH."
 
     - name: Run 'games.bat' to populate game list
       shell: cmd
+      working-directory: projectfiles\visualstudio-2015
       run: |
-        cd path\to\your\repo\projectfiles\visualstudio-2015
         call games.bat
-      # Adjust the path accordingly
 
     - name: Build the solution
       shell: cmd
+      working-directory: projectfiles\visualstudio-2015
       run: |
-        cd path\to\your\repo\projectfiles\visualstudio-2015
         "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=Win32 /t:Rebuild
 
-    - name: Copy DLLs and EXE to artifacts folder
+    - name: Collect build artifacts
       run: |
         mkdir artifacts
-        copy path\to\your\repo\projectfiles\visualstudio-2015\bin\Release\fcadefbneo.exe artifacts
-        copy path\to\your\repo\projectfiles\visualstudio-2015\bin\Release\*.dll artifacts
+        copy projectfiles\visualstudio-2015\bin\Release\fcadefbneo.exe artifacts
+        copy projectfiles\visualstudio-2015\bin\Release\*.dll artifacts
 
-    - name: Upload build artifacts
+    - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
         name: FBNeo-Build
