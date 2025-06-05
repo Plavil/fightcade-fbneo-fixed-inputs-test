@@ -16,8 +16,9 @@ jobs:
 
     - name: Install DirectX 2010 SDK
       run: |
-        $ErrorActionPreference = 'continue'
-        Invoke-WebRequest -Uri "https://download.microsoft.com/download/1/9/0/1903e957-409a-4b0d-9240-1b17e0b43e0d/dxsdk_jun10.exe" -OutFile dxsdk.exe
+        $ErrorActionPreference = 'stop'
+        Invoke-WebRequest -Uri "https://archive.org/download/directx_jun2010_redist/directx_Jun2010_redist.exe" -OutFile dxsdk.exe
+        if (!(Test-Path dxsdk.exe)) { Write-Host "DirectX SDK download failed!"; exit 1 }
         Start-Process -Wait -FilePath .\dxsdk.exe -ArgumentList "/Q"
       shell: pwsh
 
@@ -29,27 +30,17 @@ jobs:
         perl -v
       shell: pwsh
 
-    - name: Ensure NASM is installed and available
+    - name: Install NASM manually
       run: |
-        choco install nasm -y
-        $ErrorActionPreference = 'stop'
-        $possiblePaths = @(
-          (Get-Command nasm.exe -ErrorAction SilentlyContinue)?.Source,
-          "C:\ProgramData\chocolatey\bin\nasm.exe",
-          "C:\ProgramData\chocolatey\lib\nasm\tools\nasm.exe"
-        ) | Where-Object { $_ -and (Test-Path $_) }
-        if ($possiblePaths.Count -eq 0) {
-          Write-Host "nasm.exe not found in expected locations."
-          Write-Host "Contents of C:\ProgramData\chocolatey\bin:"
-          Get-ChildItem "C:\ProgramData\chocolatey\bin"
-          Write-Host "Contents of C:\ProgramData\chocolatey\lib\nasm\tools:"
-          Get-ChildItem "C:\ProgramData\chocolatey\lib\nasm\tools"
+        Invoke-WebRequest -Uri "https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-installer-x64.exe" -OutFile nasm-installer.exe
+        Start-Process -Wait -FilePath .\nasm-installer.exe -ArgumentList "/S"
+        $nasmPath = "C:\Program Files\NASM\nasm.exe"
+        if (!(Test-Path $nasmPath)) {
+          Write-Host "NASM installation failed, nasm.exe not found."
           exit 1
         }
-        $nasmPath = $possiblePaths[0]
-        Write-Host "Using nasm at $nasmPath"
-        & $nasmPath -v
-        $env:PATH += ";" + [System.IO.Path]::GetDirectoryName($nasmPath)
+        & "$nasmPath" -v
+        $env:PATH += ";C:\Program Files\NASM"
       shell: pwsh
 
     - name: Run games.bat
