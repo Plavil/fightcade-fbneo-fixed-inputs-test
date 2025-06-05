@@ -29,12 +29,23 @@ jobs:
         perl -v
       shell: pwsh
 
-    - name: Ensure NASM is installed and on PATH
+    - name: Ensure NASM is installed and available
       run: |
         choco install nasm -y
-        $env:PATH += ";C:\ProgramData\chocolatey\bin"
-        Write-Host "PATH is: $env:PATH"
-        nasm -v
+        $ErrorActionPreference = 'stop'
+        $nasmPath = (Get-Command nasm.exe -ErrorAction SilentlyContinue)?.Source
+        if (-not $nasmPath) {
+          $nasmPath = Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\nasm" -Filter nasm.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { $_.FullName }
+          if ($nasmPath) {
+            Write-Host "Found nasm.exe at $nasmPath"
+            $env:PATH += ";" + [System.IO.Path]::GetDirectoryName($nasmPath)
+          } else {
+            Write-Host "nasm.exe not found after installation"
+            exit 1
+          }
+        }
+        Write-Host "Using nasm at $nasmPath"
+        & $nasmPath -v
       shell: pwsh
 
     - name: Run games.bat
