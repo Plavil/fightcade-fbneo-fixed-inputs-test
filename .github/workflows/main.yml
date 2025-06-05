@@ -69,7 +69,7 @@ jobs:
         copy projectfiles\visualstudio-2015\bin\Release\*.dll artifacts
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@latest
       with:
         name: FBNeo-Build
         path: artifacts/
