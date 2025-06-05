@@ -3,7 +3,7 @@ name: Build FightcadeFBNeo
 on:
   push:
     branches:
-      - master  # or your default branch
+      - master  # change if your branch name differs
   pull_request:
     branches:
       - master
