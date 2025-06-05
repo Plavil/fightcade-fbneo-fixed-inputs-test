@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 45 # Increase if needed for large downloads
 
     steps:
     - name: Checkout code
@@ -17,9 +18,13 @@ jobs:
     - name: Install DirectX 2010 SDK
       run: |
         $ErrorActionPreference = 'stop'
+        Write-Host "Starting DirectX SDK download..."
         Invoke-WebRequest -Uri "https://download.microsoft.com/download/a/e/7/ae743f1f-632b-4809-87a9-aa1bb3458e31/DXSDK_Jun10.exe" -OutFile DXSDK_Jun10.exe
+        Write-Host "DirectX SDK downloaded. Verifying..."
         if (!(Test-Path DXSDK_Jun10.exe)) { Write-Host "DirectX SDK download failed!"; exit 1 }
+        Write-Host "Starting silent install of DirectX SDK..."
         Start-Process -Wait -FilePath .\DXSDK_Jun10.exe -ArgumentList "/Q"
+        Write-Host "DirectX SDK installation complete."
       shell: pwsh
 
     - name: Ensure Perl is installed
@@ -32,7 +37,9 @@ jobs:
 
     - name: Install NASM manually
       run: |
+        Write-Host "Downloading NASM installer..."
         Invoke-WebRequest -Uri "https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-installer-x64.exe" -OutFile nasm-installer.exe
+        Write-Host "Running NASM installer..."
         Start-Process -Wait -FilePath .\nasm-installer.exe -ArgumentList "/S"
         $nasmPath = "C:\Program Files\NASM\nasm.exe"
         if (!(Test-Path $nasmPath)) {
