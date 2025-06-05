@@ -33,17 +33,20 @@ jobs:
       run: |
         choco install nasm -y
         $ErrorActionPreference = 'stop'
-        $nasmPath = (Get-Command nasm.exe -ErrorAction SilentlyContinue)?.Source
-        if (-not $nasmPath) {
-          $nasmPath = Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\nasm" -Filter nasm.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { $_.FullName }
-        }
-        if (-not $nasmPath) {
-          $nasmPath = Get-ChildItem -Path "C:\" -Filter nasm.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { $_.FullName }
-        }
-        if (-not $nasmPath) {
-          Write-Host "nasm.exe not found after installation"
+        $possiblePaths = @(
+          (Get-Command nasm.exe -ErrorAction SilentlyContinue)?.Source,
+          "C:\ProgramData\chocolatey\bin\nasm.exe",
+          "C:\ProgramData\chocolatey\lib\nasm\tools\nasm.exe"
+        ) | Where-Object { $_ -and (Test-Path $_) }
+        if ($possiblePaths.Count -eq 0) {
+          Write-Host "nasm.exe not found in expected locations."
+          Write-Host "Contents of C:\ProgramData\chocolatey\bin:"
+          Get-ChildItem "C:\ProgramData\chocolatey\bin"
+          Write-Host "Contents of C:\ProgramData\chocolatey\lib\nasm\tools:"
+          Get-ChildItem "C:\ProgramData\chocolatey\lib\nasm\tools"
           exit 1
         }
+        $nasmPath = $possiblePaths[0]
         Write-Host "Using nasm at $nasmPath"
         & $nasmPath -v
         $env:PATH += ";" + [System.IO.Path]::GetDirectoryName($nasmPath)
