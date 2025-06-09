@@ -18,35 +18,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install Perl (ActivePerl via Chocolatey)
-      - name: Install Perl
-        run: choco install -y activeperl
+      # Install Strawberry Perl (more reliable than ActivePerl)
+      - name: Install Strawberry Perl
+        run: choco install -y strawberryperl
 
-      # Install NASM (via Chocolatey)
+      # Install NASM (assembler)
       - name: Install NASM
         run: choco install -y nasm
-
-      # Add NASM/Perl to PATH
-      - name: Add Perl and NASM to PATH
-        run: |
-          setx PATH "%PATH%;C:\Strawberry\perl\bin;C:\Program Files\NASM"
-          echo PATH is now: %PATH%
 
       # Run games.bat to generate games list
       - name: Run games.bat
         working-directory: ./projectfiles/visualstudio-2015
         run: games.bat
 
-      # Build the solution with MSBuild
+      # Build the solution with MSBuild (tries different VS editions)
       - name: Build with MSBuild
         working-directory: ./projectfiles/visualstudio-2015
         run: |
-          "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86 || ^
-          "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86 || ^
-          "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86 || ^
-          MSBuild.exe fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
+          IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" (
+            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
+          ) ELSE IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" (
+            "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
+          ) ELSE IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" (
+            "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
+          ) ELSE (
+            MSBuild.exe fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
+          )
 
-      # Upload build artifacts (optional; you can adjust path)
+      # Upload build artifacts (optional; adjust path if needed)
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
