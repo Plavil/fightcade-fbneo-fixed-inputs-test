@@ -28,6 +28,63 @@ jobs:
         run: dir
         working-directory: ./projectfiles/visualstudio-2015
 
+      # Patch Windows SDK version and PlatformToolset for CI build
+      - name: Patch Windows SDK version to 10.0 and PlatformToolset to v143 in .vcxproj
+        shell: pwsh
+        working-directory: ./projectfiles/visualstudio-2015
+        run: |
+          (Get-Content fbneo_vs2015.vcxproj) `
+            -replace '8\.1', '10.0' `
+            -replace '<PlatformToolset>v140</PlatformToolset>', '<PlatformToolset>v143</PlatformToolset>' |
+            Set-Content fbneo_vs2015.vcxproj
+
+      - name: Build with MSBuild
+        working-directory: ./projectfiles/visualstudio-2015
+        run: |
+          IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" (
+            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
+          ) ELSE IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" (
+            "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
+          ) ELSE IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" (
+            "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
+          ) ELSE (
+            MSBuild.exe fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
+          )
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: ./projectfiles/visualstudio-2015/build/name: Build FBNeo (Windows)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Strawberry Perl
+        run: choco install -y strawberryperl
+
+      - name: Install NASM
+        run: choco install -y nasm
+
+      - name: List projectfiles/visualstudio-2015 contents
+        run: dir
+        working-directory: ./projectfiles/visualstudio-2015
+
       # Patch Windows SDK version to 10.0 for CI build
       - name: Patch Windows SDK version to 10.0 in .vcxproj
         shell: pwsh
