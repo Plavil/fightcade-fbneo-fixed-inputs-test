@@ -28,19 +28,6 @@ jobs:
         run: dir
         working-directory: ./projectfiles/visualstudio-2015
 
-      - name: Check games.bat exists
-        working-directory: ./projectfiles/visualstudio-2015
-        run: |
-          IF NOT EXIST games.bat (
-            echo "games.bat not found!"
-            dir
-            exit /b 1
-          )
-
-      - name: Run games.bat
-        working-directory: ./projectfiles/visualstudio-2015
-        run: games.bat
-
       - name: Build with MSBuild
         working-directory: ./projectfiles/visualstudio-2015
         run: |
