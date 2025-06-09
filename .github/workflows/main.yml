@@ -1,4 +1,4 @@
-name: Windows Build
+name: Build FBNeo (Windows)
 
 on:
   push:
@@ -9,63 +9,46 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 45 # Increase if needed for large downloads
+
+    defaults:
+      run:
+        shell: cmd
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install DirectX 2010 SDK
-      run: |
-        $ErrorActionPreference = 'stop'
-        Write-Host "Starting DirectX SDK download..."
-        Invoke-WebRequest -Uri "https://download.microsoft.com/download/a/e/7/ae743f1f-632b-4809-87a9-aa1bb3458e31/DXSDK_Jun10.exe" -OutFile DXSDK_Jun10.exe
-        Write-Host "DirectX SDK downloaded. Verifying..."
-        if (!(Test-Path DXSDK_Jun10.exe)) { Write-Host "DirectX SDK download failed!"; exit 1 }
-        Write-Host "Starting silent install of DirectX SDK..."
-        Start-Process -Wait -FilePath .\DXSDK_Jun10.exe -ArgumentList "/Q"
-        Write-Host "DirectX SDK installation complete."
-      shell: pwsh
+      # Install Perl (ActivePerl via Chocolatey)
+      - name: Install Perl
+        run: choco install -y activeperl
 
-    - name: Ensure Perl is installed
-      run: |
-        if (-not (Get-Command perl -ErrorAction SilentlyContinue)) {
-          choco install strawberryperl -y
-        }
-        perl -v
-      shell: pwsh
+      # Install NASM (via Chocolatey)
+      - name: Install NASM
+        run: choco install -y nasm
 
-    - name: Install NASM manually
-      run: |
-        Write-Host "Downloading NASM installer..."
-        Invoke-WebRequest -Uri "https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-installer-x64.exe" -OutFile nasm-installer.exe
-        Write-Host "Running NASM installer..."
-        Start-Process -Wait -FilePath .\nasm-installer.exe -ArgumentList "/S"
-        $nasmPath = "C:\Program Files\NASM\nasm.exe"
-        if (!(Test-Path $nasmPath)) {
-          Write-Host "NASM installation failed, nasm.exe not found."
-          exit 1
-        }
-        & "$nasmPath" -v
-        $env:PATH += ";C:\Program Files\NASM"
-      shell: pwsh
+      # Add NASM/Perl to PATH
+      - name: Add Perl and NASM to PATH
+        run: |
+          setx PATH "%PATH%;C:\Strawberry\perl\bin;C:\Program Files\NASM"
+          echo PATH is now: %PATH%
 
-    - name: Run games.bat
-      run: |
-        cd projectfiles\visualstudio-2015
-        ..\..\games.bat
-      shell: cmd
+      # Run games.bat to generate games list
+      - name: Run games.bat
+        working-directory: ./projectfiles/visualstudio-2015
+        run: games.bat
 
-    - name: Build with MSBuild (Release/x86)
-      run: |
-        cd projectfiles\visualstudio-2015
-        msbuild fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86 /m
-      shell: cmd
+      # Build the solution with MSBuild
+      - name: Build with MSBuild
+        working-directory: ./projectfiles/visualstudio-2015
+        run: |
+          "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86 || ^
+          "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86 || ^
+          "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86 || ^
+          MSBuild.exe fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
 
-    - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: fbneo-windows-build
-        path: |
-          projectfiles/visualstudio-2015/build/*.exe
-          projectfiles/visualstudio-2015/build/*.dll
+      # Upload build artifacts (optional; you can adjust path)
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: ./projectfiles/visualstudio-2015/build/
