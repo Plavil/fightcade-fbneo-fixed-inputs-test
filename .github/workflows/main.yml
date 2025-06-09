@@ -18,20 +18,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install Strawberry Perl (more reliable than ActivePerl)
       - name: Install Strawberry Perl
         run: choco install -y strawberryperl
 
-      # Install NASM (assembler)
       - name: Install NASM
         run: choco install -y nasm
 
-      # Run games.bat to generate games list
+      - name: List projectfiles/visualstudio-2015 contents
+        run: dir
+        working-directory: ./projectfiles/visualstudio-2015
+
+      - name: Check games.bat exists
+        working-directory: ./projectfiles/visualstudio-2015
+        run: |
+          IF NOT EXIST games.bat (
+            echo "games.bat not found!"
+            dir
+            exit /b 1
+          )
+
       - name: Run games.bat
         working-directory: ./projectfiles/visualstudio-2015
         run: games.bat
 
-      # Build the solution with MSBuild (tries different VS editions)
       - name: Build with MSBuild
         working-directory: ./projectfiles/visualstudio-2015
         run: |
@@ -45,7 +54,6 @@ jobs:
             MSBuild.exe fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
           )
 
-      # Upload build artifacts (optional; adjust path if needed)
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
