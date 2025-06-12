@@ -1,0 +1,59 @@
+name: Build FightcadeFBNeo
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2019  # Using Windows 2019 runner which comes with VS2019
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1.3.1
+
+    - name: Setup DirectX SDK
+      run: |
+        curl -L -o directx_sdk.exe https://download.microsoft.com/download/A/E/7/AE743F1F-632B-4809-87A9-AA1BB3458E31/DXSDK_Jun10.exe
+        start /wait directx_sdk.exe /Q
+      shell: cmd
+
+    - name: Install Perl
+      run: |
+        choco install activeperl
+        refreshenv
+      shell: powershell
+
+    - name: Install NASM
+      run: |
+        choco install nasm
+        refreshenv
+      shell: powershell
+
+    - name: Generate Games List
+      run: |
+        cd projectfiles
+        .\games.bat
+      shell: cmd
+
+    - name: Build Solution
+      run: |
+        msbuild "projectfiles\visualstudio-2015\fbneo_vs2015.sln" /p:Configuration=Release /p:Platform=x86 /m
+
+    - name: Create Build Directory
+      run: |
+        mkdir build
+        move projectfiles\visualstudio-2015\x86\Release\fcadefbneo.exe build\
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: fcadefbneo
+        path: build\fcadefbneo.exe
