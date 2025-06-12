@@ -1,112 +1,52 @@
-name: Build FBNeo (Windows)
+name: Build FightcadeFBNeo
 
 on:
   push:
-    branches: [main, master]
+    branches: [ main ]
   pull_request:
-    branches: [main, master]
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: windows-latest
-
-    defaults:
-      run:
-        shell: cmd
-
+    runs-on: windows-2019  # Using Windows 2019 for VS2015 compatibility
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v3
+    
+    - name: Setup Visual Studio environment
+      uses: microsoft/setup-msbuild@v1.1
+      
+    - name: Download DirectX SDK
+      run: |
+        Invoke-WebRequest -Uri "https://download.microsoft.com/download/A/E/7/AE743F1F-632B-4809-87A9-AA1BB3458E31/DXSDK_Jun10.exe" -OutFile "DXSDK_Jun10.exe"
+        Start-Process -FilePath "DXSDK_Jun10.exe" -ArgumentList "/U /quiet" -Wait
+      
+    - name: Setup Perl
+      uses: shogo82148/actions-setup-perl@v1
+      with:
+        perl-version: '5.32'
+        
+    - name: Install NASM
+      run: |
+        Invoke-WebRequest -Uri "https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/win64/nasm-2.15.05-win64.zip" -OutFile "nasm.zip"
+        Expand-Archive -Path "nasm.zip" -DestinationPath "C:\nasm"
+        echo "C:\nasm\nasm-2.15.05" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        
+    - name: Generate games list
+      run: |
+        cd ${{github.workspace}}
+        .\games.bat
+        
+    - name: Build Solution
+      run: |
+        cd "projectfiles\visualstudio-2015"
+        msbuild fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
 
-      - name: Install Strawberry Perl
-        run: choco install -y strawberryperl
-
-      - name: Install NASM
-        run: choco install -y nasm
-
-      - name: List projectfiles/visualstudio-2015 contents
-        run: dir
-        working-directory: ./projectfiles/visualstudio-2015
-
-      # Patch Windows SDK version and PlatformToolset for CI build
-      - name: Patch Windows SDK version to 10.0 and PlatformToolset to v143 in .vcxproj
-        shell: pwsh
-        working-directory: ./projectfiles/visualstudio-2015
-        run: |
-          (Get-Content fbneo_vs2015.vcxproj) `
-            -replace '8\.1', '10.0' `
-            -replace '<PlatformToolset>v140</PlatformToolset>', '<PlatformToolset>v143</PlatformToolset>' |
-            Set-Content fbneo_vs2015.vcxproj
-
-      - name: Build with MSBuild
-        working-directory: ./projectfiles/visualstudio-2015
-        run: |
-          IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" (
-            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
-          ) ELSE IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" (
-            "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
-          ) ELSE IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" (
-            "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
-          ) ELSE (
-            MSBuild.exe fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
-          )
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-output
-          path: ./projectfiles/visualstudio-2015/build/name: Build FBNeo (Windows)
-
-on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
-
-jobs:
-  build:
-    runs-on: windows-latest
-
-    defaults:
-      run:
-        shell: cmd
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Strawberry Perl
-        run: choco install -y strawberryperl
-
-      - name: Install NASM
-        run: choco install -y nasm
-
-      - name: List projectfiles/visualstudio-2015 contents
-        run: dir
-        working-directory: ./projectfiles/visualstudio-2015
-
-      # Patch Windows SDK version to 10.0 for CI build
-      - name: Patch Windows SDK version to 10.0 in .vcxproj
-        shell: pwsh
-        working-directory: ./projectfiles/visualstudio-2015
-        run: |
-          (Get-Content fbneo_vs2015.vcxproj) -replace '8\.1', '10.0' | Set-Content fbneo_vs2015.vcxproj
-
-      - name: Build with MSBuild
-        working-directory: ./projectfiles/visualstudio-2015
-        run: |
-          IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" (
-            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
-          ) ELSE IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" (
-            "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
-          ) ELSE IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" (
-            "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
-          ) ELSE (
-            MSBuild.exe fbneo_vs2015.sln /p:Configuration=Release /p:Platform=x86
-          )
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-output
-          path: ./projectfiles/visualstudio-2015/build/
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: FightcadeFBNeo-Build
+        path: |
+          build/*.exe
+          build/*.dll
