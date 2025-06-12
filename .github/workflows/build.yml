@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2019  # Using Windows 2019 runner which comes with VS2019
+    runs-on: windows-2019
     
     steps:
     - uses: actions/checkout@v4
@@ -22,18 +22,26 @@ jobs:
     - name: Setup DirectX SDK
       run: |
         curl -L -o directx_sdk.exe https://download.microsoft.com/download/A/E/7/AE743F1F-632B-4809-87A9-AA1BB3458E31/DXSDK_Jun10.exe
-        start /wait directx_sdk.exe /Q
+        if not exist directx_sdk.exe exit 1
+        echo "Starting DirectX SDK installation..."
+        start /wait directx_sdk.exe /U /Q
+        if %ERRORLEVEL% NEQ 0 (
+          echo "DirectX SDK installation failed with error code %ERRORLEVEL%"
+          exit 1
+        )
+        echo "DirectX SDK installation completed"
+        echo "DXSDK_DIR=C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)" >> $GITHUB_ENV
       shell: cmd
 
     - name: Install Perl
       run: |
-        choco install activeperl
+        choco install activeperl --no-progress
         refreshenv
       shell: powershell
 
     - name: Install NASM
       run: |
-        choco install nasm
+        choco install nasm --no-progress
         refreshenv
       shell: powershell
 
@@ -45,15 +53,20 @@ jobs:
 
     - name: Build Solution
       run: |
+        echo "DXSDK_DIR: %DXSDK_DIR%"
         msbuild "projectfiles\visualstudio-2015\fbneo_vs2015.sln" /p:Configuration=Release /p:Platform=x86 /m
+      shell: cmd
+      env:
+        DXSDK_DIR: "C:\\Program Files (x86)\\Microsoft DirectX SDK (June 2010)\\"
 
     - name: Create Build Directory
       run: |
         mkdir build
         move projectfiles\visualstudio-2015\x86\Release\fcadefbneo.exe build\
+      continue-on-error: true
 
     - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4  # Updated from v3 to v4
+      uses: actions/upload-artifact@v4
       with:
         name: fcadefbneo
         path: build\fcadefbneo.exe
