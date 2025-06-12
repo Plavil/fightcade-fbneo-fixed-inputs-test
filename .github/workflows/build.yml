@@ -19,18 +19,36 @@ jobs:
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v1.3.1
 
+    - name: Remove conflicting Visual C++ Redistributable
+      run: |
+        echo "Removing potentially conflicting Visual C++ Redistributable..."
+        for /f "tokens=* usebackq" %%F in (`dir /b /s "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\redist\x64\Microsoft.VC140.CRT\vcruntime140.dll" 2^>nul`) do (
+            echo "Found: %%F"
+            takeown /f "%%F"
+            icacls "%%F" /grant administrators:F
+            del "%%F"
+        )
+      shell: cmd
+      continue-on-error: true
+
     - name: Setup DirectX SDK
       run: |
+        echo "Downloading DirectX SDK..."
         curl -L -o directx_sdk.exe https://download.microsoft.com/download/A/E/7/AE743F1F-632B-4809-87A9-AA1BB3458E31/DXSDK_Jun10.exe
         if not exist directx_sdk.exe exit 1
         echo "Starting DirectX SDK installation..."
         start /wait directx_sdk.exe /U /Q
-        if %ERRORLEVEL% NEQ 0 (
-          echo "DirectX SDK installation failed with error code %ERRORLEVEL%"
+        set EXIT_CODE=%ERRORLEVEL%
+        if %EXIT_CODE% EQU 1023 (
+          echo "Installation completed with code 1023 (known issue) - continuing..."
+          echo "DXSDK_DIR=C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)" >> %GITHUB_ENV%
+          exit 0
+        ) else if %EXIT_CODE% NEQ 0 (
+          echo "DirectX SDK installation failed with error code %EXIT_CODE%"
           exit 1
         )
-        echo "DirectX SDK installation completed"
-        echo "DXSDK_DIR=C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)" >> $GITHUB_ENV
+        echo "DirectX SDK installation completed successfully"
+        echo "DXSDK_DIR=C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)" >> %GITHUB_ENV%
       shell: cmd
 
     - name: Install Perl
@@ -54,6 +72,10 @@ jobs:
     - name: Build Solution
       run: |
         echo "DXSDK_DIR: %DXSDK_DIR%"
+        if not exist "%DXSDK_DIR%" (
+          echo "DirectX SDK directory not found"
+          exit 1
+        )
         msbuild "projectfiles\visualstudio-2015\fbneo_vs2015.sln" /p:Configuration=Release /p:Platform=x86 /m
       shell: cmd
       env:
@@ -61,8 +83,9 @@ jobs:
 
     - name: Create Build Directory
       run: |
-        mkdir build
-        move projectfiles\visualstudio-2015\x86\Release\fcadefbneo.exe build\
+        mkdir build 2>nul || echo "Build directory already exists"
+        move projectfiles\visualstudio-2015\x86\Release\fcadefbneo.exe build\ || echo "Failed to move executable"
+      shell: cmd
       continue-on-error: true
 
     - name: Upload Build Artifacts
